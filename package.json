@@ -1,7 +1,7 @@
 {
   "name": "megabaze-pairing",
   "version": "1.0.0",
-  "description": "WhatsApp Pairing Code Generator for Render",
+  "description": "WhatsApp Pairing Code Generator",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,6 +10,6 @@
     "@whiskeysockets/baileys": "latest",
     "express": "^4.18.2",
     "pino": "^8.16.1",
-    "qrcode-terminal": "^0.12.0"
+    "pino-pretty": "^10.2.0"
   }
 }
