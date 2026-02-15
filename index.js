@@ -13,44 +13,56 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Website Frontend
+// Website Interface
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
-        <html lang="sw">
+        <html>
         <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Mega-Baze Session</title>
+            <title>Mega-Baze Pair</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-                body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #e5ddd5; }
-                .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; width: 350px; }
-                input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-                button { width: 100%; padding: 12px; background: #25d366; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-                #displayCode { font-size: 28px; color: #075e54; margin: 15px 0; font-weight: bold; letter-spacing: 2px; }
-                .loader { color: #666; font-size: 13px; }
+                body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #111b21; color: white; }
+                .card { background: #202c33; padding: 25px; border-radius: 10px; text-align: center; width: 90%; max-width: 380px; border-top: 5px solid #00a884; }
+                input { width: 100%; padding: 12px; margin: 15px 0; border-radius: 5px; border: none; font-size: 16px; background: #2a3942; color: white; }
+                button { width: 100%; padding: 12px; background: #00a884; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+                #displayCode { font-size: 30px; color: #00a884; margin: 20px 0; font-weight: bold; min-height: 40px; }
+                .status { font-size: 13px; color: #8696a0; }
             </style>
         </head>
         <body>
             <div class="card">
-                <h2 style="color: #075e54;">Mega-Baze Pair</h2>
-                <p>Ingiza namba (Mfano: 255712345678)</p>
-                <input type="text" id="num" placeholder="255XXXXXXXXX">
-                <button onclick="startPairing()">Pata Code</button>
+                <h2>Mega-Baze Session</h2>
+                <p class="status">Weka namba na code ya nchi (Mfano: 255712...)</p>
+                <input type="text" id="num" placeholder="2557XXXXXXXX">
+                <button onclick="startPairing()" id="btn">Pata Code</button>
                 <div id="displayCode"></div>
-                <p id="msg" class="loader"></p>
+                <p id="msg" class="status"></p>
             </div>
             <script>
                 async function startPairing() {
                     const number = document.getElementById('num').value.replace(/[^0-9]/g, '');
-                    if(!number) return alert('Weka namba!');
-                    document.getElementById('msg').innerText = "Inatengeneza code... subiri kidogo";
+                    if(!number || number.length < 10) return alert('Ingiza namba sahihi!');
+                    
+                    const btn = document.getElementById('btn');
+                    btn.disabled = true;
+                    btn.innerText = "Inatengeneza...";
+                    document.getElementById('msg').innerText = "Inatafuta mawasiliano na WhatsApp...";
+
                     try {
                         const res = await fetch('/pair?number=' + number);
                         const data = await res.json();
-                        document.getElementById('displayCode').innerText = data.code || "Error!";
-                        document.getElementById('msg').innerText = "Link na WhatsApp: Devices > Link a Device > Link with phone number instead";
-                    } catch(e) { document.getElementById('msg').innerText = "Jaribu tena baadaye"; }
+                        if(data.code) {
+                            document.getElementById('displayCode').innerText = data.code;
+                            document.getElementById('msg').innerText = "Nenda WhatsApp > Linked Devices > Link with Phone Number uweke code hiyo.";
+                        } else {
+                            document.getElementById('msg').innerText = "Kosa: " + (data.error || "Jaribu tena");
+                        }
+                    } catch(e) {
+                        document.getElementById('msg').innerText = "Server imeshindwa kujibu. Jaribu tena.";
+                    }
+                    btn.disabled = false;
+                    btn.innerText = "Pata Code";
                 }
             </script>
         </body>
@@ -58,12 +70,11 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Pairing Logic
+// Logic ya Pairing
 app.get('/pair', async (req, res) => {
     let num = req.query.number;
-    // Kutumia /tmp ni muhimu kwa ajili ya Render
-    const sessionPath = path.join('/tmp', 'sessions', num);
-    
+    const sessionPath = path.join('/tmp', 'sessions', `${num}_${Date.now()}`); // Jina la folder liwe unique
+
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
 
     try {
@@ -74,35 +85,48 @@ app.get('/pair', async (req, res) => {
             },
             printQRInTerminal: false,
             logger: pino({ level: "fatal" }),
-            browser: Browsers.ubuntu("Chrome")
+            browser: Browsers.macOS("Chrome") 
         });
+
+        // Kama baada ya sekunde 15 hakuna code, tupa error
+        const timeout = setTimeout(() => {
+            if (!res.headersSent) res.json({ error: "Muda umeisha. Jaribu tena." });
+        }, 20000);
+
+        if (!sock.authState.creds.registered) {
+            let code = await sock.requestPairingCode(num);
+            clearTimeout(timeout);
+            if (!res.headersSent) res.json({ code });
+        }
 
         sock.ev.on('creds.update', saveCreds);
 
         sock.ev.on('connection.update', async (update) => {
-            const { connection } = update;
+            const { connection, lastDisconnect } = update;
+            
             if (connection === 'open') {
-                await delay(3000);
-                const credsData = fs.readFileSync(path.join(sessionPath, 'creds.json'));
-                const sessionID = Buffer.from(credsData).toString('base64');
-                
-                // Tuma Session ID DM
-                await sock.sendMessage(sock.user.id, { 
-                    text: `*USAJILI UMEKAMILIKA! ✅*\n\n*SESSION ID:* \n\n${sessionID}\n\n*PLUGINS:* \n- MegaBaze_V1\n- Bot_System\n\n_Usitupe kodi hii kwa mtu yeyote!_` 
-                });
-                console.log(`Zimeunganishwa kwa mafanikio: ${num}`);
+                console.log("Kimeeleweka! Inatuma Session...");
+                await delay(5000);
+                const credsFile = path.join(sessionPath, 'creds.json');
+                if (fs.existsSync(credsFile)) {
+                    const sessionID = Buffer.from(fs.readFileSync(credsFile)).toString('base64');
+                    await sock.sendMessage(sock.user.id, { 
+                        text: `*USAJILI WA MEGA-BAZE UMEFANIKIWA! ✅*\n\n*SESSION ID:* \n\n${sessionID}\n\n_Iweke sehemu salama!_` 
+                    });
+                }
+                // Safisha folder baada ya kumaliza (hiari)
+                // fs.rmSync(sessionPath, { recursive: true, force: true });
+            }
+
+            if (connection === 'close') {
+                console.log("Connection imefungwa. Sababu:", lastDisconnect?.error);
             }
         });
 
-        if (!sock.authState.creds.registered) {
-            setTimeout(async () => {
-                let code = await sock.requestPairingCode(num);
-                res.json({ code: code });
-            }, 2000);
-        }
     } catch (err) {
-        res.json({ error: "Server Error" });
+        console.error("Kosa la ndani:", err);
+        if (!res.headersSent) res.json({ error: "WhatsApp imekataa ombi. Jaribu baada ya dakika 5." });
     }
 });
 
-app.listen(PORT, () => console.log(`Inatumia port ${PORT}`));
+app.listen(PORT, () => console.log(`Inawaka kwenye port ${PORT}`));
