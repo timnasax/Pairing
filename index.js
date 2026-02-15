@@ -3,8 +3,8 @@ const {
     default: makeWASocket, 
     useMultiFileAuthState, 
     delay, 
-    makeCacheableSignalKeyStore,
-    Browsers 
+    Browsers,
+    makeCacheableSignalKeyStore
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const fs = require('fs');
@@ -13,56 +13,45 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Website Interface
+// Website Interface (Frontend)
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
-        <html>
+        <html lang="sw">
         <head>
-            <title>Mega-Baze Pair</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Mega-Baze Session</title>
             <style>
-                body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #111b21; color: white; }
-                .card { background: #202c33; padding: 25px; border-radius: 10px; text-align: center; width: 90%; max-width: 380px; border-top: 5px solid #00a884; }
-                input { width: 100%; padding: 12px; margin: 15px 0; border-radius: 5px; border: none; font-size: 16px; background: #2a3942; color: white; }
-                button { width: 100%; padding: 12px; background: #00a884; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-                #displayCode { font-size: 30px; color: #00a884; margin: 20px 0; font-weight: bold; min-height: 40px; }
-                .status { font-size: 13px; color: #8696a0; }
+                body { font-family: 'Segoe UI', sans-serif; background: #0b141a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .box { background: #222e35; padding: 30px; border-radius: 12px; text-align: center; width: 350px; border-bottom: 4px solid #00a884; }
+                input { width: 100%; padding: 12px; margin: 15px 0; border-radius: 6px; border: none; background: #2a3942; color: white; font-size: 16px; outline: none; }
+                button { width: 100%; padding: 12px; background: #00a884; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; }
+                #code { font-size: 32px; color: #00a884; margin: 20px 0; font-weight: bold; letter-spacing: 3px; }
+                .info { font-size: 12px; color: #8696a0; line-height: 1.5; }
             </style>
         </head>
         <body>
-            <div class="card">
-                <h2>Mega-Baze Session</h2>
-                <p class="status">Weka namba na code ya nchi (Mfano: 255712...)</p>
-                <input type="text" id="num" placeholder="2557XXXXXXXX">
-                <button onclick="startPairing()" id="btn">Pata Code</button>
-                <div id="displayCode"></div>
-                <p id="msg" class="status"></p>
+            <div class="box">
+                <h2 style="color: #00a884;">Mega-Baze Pair</h2>
+                <p class="info">Ingiza namba yako (Anza na 255...)</p>
+                <input type="text" id="phone" placeholder="2557XXXXXXXX">
+                <button onclick="getPairCode()" id="btn">Pata Code</button>
+                <div id="code"></div>
+                <p id="status" class="info"></p>
             </div>
             <script>
-                async function startPairing() {
-                    const number = document.getElementById('num').value.replace(/[^0-9]/g, '');
-                    if(!number || number.length < 10) return alert('Ingiza namba sahihi!');
-                    
-                    const btn = document.getElementById('btn');
-                    btn.disabled = true;
-                    btn.innerText = "Inatengeneza...";
-                    document.getElementById('msg').innerText = "Inatafuta mawasiliano na WhatsApp...";
-
+                async function getPairCode() {
+                    const num = document.getElementById('phone').value.replace(/[^0-9]/g, '');
+                    if(num.length < 10) return alert('Weka namba sahihi!');
+                    document.getElementById('btn').disabled = true;
+                    document.getElementById('status').innerText = "Inatengeneza code... subiri kidogo";
                     try {
-                        const res = await fetch('/pair?number=' + number);
+                        const res = await fetch('/get-code?num=' + num);
                         const data = await res.json();
-                        if(data.code) {
-                            document.getElementById('displayCode').innerText = data.code;
-                            document.getElementById('msg').innerText = "Nenda WhatsApp > Linked Devices > Link with Phone Number uweke code hiyo.";
-                        } else {
-                            document.getElementById('msg').innerText = "Kosa: " + (data.error || "Jaribu tena");
-                        }
-                    } catch(e) {
-                        document.getElementById('msg').innerText = "Server imeshindwa kujibu. Jaribu tena.";
-                    }
-                    btn.disabled = false;
-                    btn.innerText = "Pata Code";
+                        document.getElementById('code').innerText = data.code || "Error!";
+                        document.getElementById('status').innerText = "Link na WhatsApp: Devices > Link a Device > Link with phone number";
+                    } catch(e) { document.getElementById('status').innerText = "Server Error. Jaribu tena."; }
+                    document.getElementById('btn').disabled = false;
                 }
             </script>
         </body>
@@ -70,63 +59,51 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Logic ya Pairing
-app.get('/pair', async (req, res) => {
-    let num = req.query.number;
-    const sessionPath = path.join('/tmp', 'sessions', `${num}_${Date.now()}`); // Jina la folder liwe unique
+// WhatsApp Linking Logic
+app.get('/get-code', async (req, res) => {
+    let num = req.query.num;
+    const sessionDir = path.join('/tmp', 'session-' + num);
+    if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
 
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
 
-    try {
-        const sock = makeWASocket({
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
-            },
-            printQRInTerminal: false,
-            logger: pino({ level: "fatal" }),
-            browser: Browsers.macOS("Chrome") 
-        });
+    const sock = makeWASocket({
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
+        },
+        printQRInTerminal: false,
+        logger: pino({ level: "fatal" }),
+        browser: Browsers.ubuntu("Chrome")
+    });
 
-        // Kama baada ya sekunde 15 hakuna code, tupa error
-        const timeout = setTimeout(() => {
-            if (!res.headersSent) res.json({ error: "Muda umeisha. Jaribu tena." });
-        }, 20000);
+    sock.ev.on('creds.update', saveCreds);
 
-        if (!sock.authState.creds.registered) {
-            let code = await sock.requestPairingCode(num);
-            clearTimeout(timeout);
-            if (!res.headersSent) res.json({ code });
-        }
-
-        sock.ev.on('creds.update', saveCreds);
-
-        sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
+    sock.ev.on('connection.update', async (update) => {
+        const { connection } = update;
+        if (connection === 'open') {
+            await delay(5000);
+            const creds = JSON.parse(fs.readFileSync(path.join(sessionDir, 'creds.json')));
+            // Hii ndio Session ID yako ya kuweka kwenye Bot
+            const sessionID = Buffer.from(JSON.stringify(creds)).toString('base64');
             
-            if (connection === 'open') {
-                console.log("Kimeeleweka! Inatuma Session...");
-                await delay(5000);
-                const credsFile = path.join(sessionPath, 'creds.json');
-                if (fs.existsSync(credsFile)) {
-                    const sessionID = Buffer.from(fs.readFileSync(credsFile)).toString('base64');
-                    await sock.sendMessage(sock.user.id, { 
-                        text: `*USAJILI WA MEGA-BAZE UMEFANIKIWA! ✅*\n\n*SESSION ID:* \n\n${sessionID}\n\n_Iweke sehemu salama!_` 
-                    });
-                }
-                // Safisha folder baada ya kumaliza (hiari)
-                // fs.rmSync(sessionPath, { recursive: true, force: true });
-            }
+            await sock.sendMessage(sock.user.id, { 
+                text: `*USAJILI WA MEGA PLUGINS KUKAMILIKA! ✅*\n\n*Hii hapa Session ID yako:*\n\n\`\`\`${sessionID}\`\`\`\n\n_Copy kodi hiyo na ukaweke kwenye file la config la bot yako._` 
+            });
+            console.log("Session ID imetumwa DM!");
+        }
+    });
 
-            if (connection === 'close') {
-                console.log("Connection imefungwa. Sababu:", lastDisconnect?.error);
-            }
-        });
-
-    } catch (err) {
-        console.error("Kosa la ndani:", err);
-        if (!res.headersSent) res.json({ error: "WhatsApp imekataa ombi. Jaribu baada ya dakika 5." });
+    // Request pairing code
+    if (!sock.authState.creds.registered) {
+        try {
+            await delay(2000);
+            let code = await sock.requestPairingCode(num);
+            res.json({ code });
+        } catch (err) {
+            res.json({ error: "Goma kupata code. Jaribu tena." });
+        }
     }
 });
 
-app.listen(PORT, () => console.log(`Inawaka kwenye port ${PORT}`));
+app.listen(PORT, () => console.log(`Inawaka: http://localhost:${PORT}`));
